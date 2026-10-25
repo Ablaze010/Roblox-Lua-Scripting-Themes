@@ -1,0 +1,436 @@
+# Roblox Luau Scripting Guide — Intermediate
+
+## 1. Introduction
+
+This guide builds on the basics of Luau and Roblox Studio. You should already understand variables, functions, if statements, loops, tables, events, and how to access Roblox objects.
+
+The goal is to learn how to organize code, build reliable gameplay systems, and understand how scripts communicate in multiplayer games.
+
+By the end, you should be able to create more complex systems such as inventories, shops, round systems, and interactive gameplay mechanics.
+
+## 2. Scope and Variable Lifetime
+
+Scope determines where a variable can be accessed.
+
+```lua
+local coins = 100
+
+if coins > 50 then
+    local bonus = 25
+    print(bonus)
+end
+
+print(coins)
+-- print(bonus) would cause an error
+```
+
+The variable `coins` is accessible throughout its surrounding scope. The variable `bonus` only exists inside the `if` block.
+
+Use `local` for most variables and functions. This makes your code easier to understand and reduces accidental interference between scripts.
+
+Variables can also be declared inside functions:
+
+```lua
+local function calculateCoins()
+    local reward = 10
+    return reward
+end
+
+local result = calculateCoins()
+print(result)
+```
+
+## 3. Return Values
+
+The `return` keyword allows a function to send a result back to the code that called it.
+
+```lua
+local function addNumbers(a, b)
+    return a + b
+end
+
+local result = addNumbers(5, 10)
+print(result)
+```
+
+The output is `15`.
+
+Returning values is useful when calculating prices, checking whether a player can purchase an item, or determining rewards.
+
+A function can also return a Boolean:
+
+```lua
+local function canAfford(coins, price)
+    return coins >= price
+end
+
+print(canAfford(100, 50)) -- true
+print(canAfford(20, 50))  -- false
+```
+
+This lets other parts of your game reuse the same logic.
+
+## 4. Tables in More Detail
+
+Tables can store both lists and named values.
+
+### Dictionaries
+
+```lua
+local playerData = {
+    Coins = 100,
+    Level = 5,
+    HasSword = true
+}
+
+print(playerData.Coins)
+
+playerData.Coins += 50
+print(playerData.Coins)
+```
+
+Dictionaries are useful for storing related information under descriptive keys.
+
+### Iterating through tables
+
+Use `ipairs()` to iterate through array-like lists:
+
+```lua
+local inventory = {"Sword", "Potion", "Shield"}
+
+for index, item in ipairs(inventory) do
+    print(index, item)
+end
+```
+
+Use `pairs()` to iterate through dictionary entries:
+
+```lua
+local stats = {
+    Coins = 100,
+    Level = 5
+}
+
+for statName, value in pairs(stats) do
+    print(statName, value)
+end
+```
+
+Dictionary iteration order is not guaranteed. If the order matters, use an array or sort the keys.
+
+## 5. Debounce Systems
+
+A debounce prevents an action from running repeatedly while an event fires multiple times.
+
+For example, a coin should normally be collected only once.
+
+```lua
+local coin = script.Parent
+local collected = false
+
+coin.Touched:Connect(function(hit)
+    if collected then
+        return
+    end
+
+    local character = hit.Parent
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+    if not humanoid then
+        return
+    end
+
+    collected = true
+    coin:Destroy()
+end)
+```
+
+The script checks whether the touching object belongs to a character with a Humanoid. Once collected, the coin is destroyed.
+
+For a real multiplayer coin system, the server should also award the reward and validate that the player is eligible to collect it.
+
+## 6. ModuleScripts
+
+A ModuleScript allows you to organize reusable functions and data into separate files.
+
+This becomes especially useful when your game contains multiple systems.
+
+Create a ModuleScript named `ItemModule` inside `ReplicatedStorage`:
+
+```lua
+local ItemModule = {}
+
+ItemModule.Items = {
+    Sword = {
+        Price = 100,
+        Damage = 25
+    },
+
+    Potion = {
+        Price = 50,
+        Healing = 20
+    }
+}
+
+function ItemModule.GetPrice(itemName)
+    local item = ItemModule.Items[itemName]
+
+    if item then
+        return item.Price
+    end
+
+    return nil
+end
+
+return ItemModule
+```
+
+Now another Script can use the module:
+
+```lua
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ItemModule = require(ReplicatedStorage.ItemModule)
+
+local price = ItemModule.GetPrice("Sword")
+
+print(price)
+```
+
+The output is `100`.
+
+`require()` loads the ModuleScript and returns the value it provides through `return`.
+
+**Important:** Code and data in `ReplicatedStorage` are accessible to clients. Never put secret server-only information there.
+
+## 7. RemoteEvents
+
+RemoteEvents allow the client and server to communicate.
+
+They are essential for multiplayer features such as inventory interfaces, shop buttons, and player actions.
+
+Create a RemoteEvent named `BuyItem` inside `ReplicatedStorage`.
+
+### LocalScript — client
+
+Place this LocalScript inside a GUI button:
+
+```lua
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local buyItemEvent = ReplicatedStorage:WaitForChild("BuyItem")
+
+script.Parent.Activated:Connect(function()
+    buyItemEvent:FireServer("Sword")
+end)
+```
+
+When the button is activated, the client asks the server to purchase a sword.
+
+### Script — server
+
+Place this Script inside `ServerScriptService`:
+
+```lua
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local buyItemEvent = ReplicatedStorage:WaitForChild("BuyItem")
+
+buyItemEvent.OnServerEvent:Connect(function(player, itemName)
+    print(player.Name, "requested:", itemName)
+end)
+```
+
+The server receives the request. This example only prints it; it does not actually purchase the item.
+
+**Security rule:** A client request is not proof that a purchase is valid. The server must check the item, price, player currency, inventory capacity, and other requirements before granting anything.
+
+## 8. Server-Side Validation
+
+Never trust the client with important game decisions.
+
+For example, a client should not be able to decide how many coins it receives or what an item costs.
+
+A simple server-side purchase handler might look like this:
+
+```lua
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local buyItemEvent = ReplicatedStorage:WaitForChild("BuyItem")
+
+local prices = {
+    Sword = 100,
+    Potion = 50
+}
+
+local function getCoins(player)
+    local leaderstats = player:FindFirstChild("leaderstats")
+
+    if not leaderstats then
+        return nil
+    end
+
+    return leaderstats:FindFirstChild("Coins")
+end
+
+buyItemEvent.OnServerEvent:Connect(function(player, itemName)
+    if typeof(itemName) ~= "string" then
+        return
+    end
+
+    local price = prices[itemName]
+    local coins = getCoins(player)
+
+    if not price or not coins then
+        return
+    end
+
+    if coins.Value < price then
+        return
+    end
+
+    coins.Value -= price
+
+    print(player.Name .. " purchased " .. itemName)
+end)
+```
+
+This example deducts currency after validating the request. It does not yet grant or save the item, so those features must be added separately.
+
+For production systems, also consider request rate limits, duplicate requests, and inventory limits.
+
+## 9. Connecting Player Events
+
+Roblox provides the `Players` service to manage players joining and leaving the server.
+
+```lua
+local Players = game:GetService("Players")
+
+Players.PlayerAdded:Connect(function(player)
+    print(player.Name .. " joined the game")
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    print(player.Name .. " left the game")
+end)
+```
+
+These events are useful for initializing player data, tracking sessions, and cleaning up temporary information.
+
+Remember that `PlayerAdded` handles players joining the running server. When writing code that must also handle players already present, check `Players:GetPlayers()` as appropriate.
+
+## 10. Attributes
+
+Attributes let you store custom properties directly on Roblox instances.
+
+```lua
+local part = workspace.Part
+
+part:SetAttribute("IsOpen", false)
+
+part:SetAttribute("IsOpen", true)
+
+print(part:GetAttribute("IsOpen"))
+```
+
+You can listen for changes:
+
+```lua
+part:GetAttributeChangedSignal("IsOpen"):Connect(function()
+    print("IsOpen changed to:", part:GetAttribute("IsOpen"))
+end)
+```
+
+Attributes are useful for doors, quests, item states, enemy health, and other systems where custom state belongs to an object.
+
+They can also replicate from the server to clients, making them useful for displaying game state.
+
+## 11. Object-Oriented Programming
+
+Object-oriented programming, often called OOP, lets you represent game objects using tables and methods.
+
+A common Luau pattern uses metatables:
+
+```lua
+local Weapon = {}
+Weapon.__index = Weapon
+
+function Weapon.new(name, damage)
+    local self = {
+        Name = name,
+        Damage = damage
+    }
+
+    return setmetatable(self, Weapon)
+end
+
+function Weapon:Describe()
+    print(self.Name .. " deals " .. self.Damage .. " damage.")
+end
+
+local sword = Weapon.new("Sword", 25)
+sword:Describe()
+```
+
+The colon syntax in `Weapon:Describe()` automatically passes the object as `self`.
+
+This pattern can help organize weapons, enemies, abilities, and other objects that share behavior.
+
+You do not need OOP for every system. Use it when it makes your code easier to organize.
+
+## 12. Error Handling with pcall
+
+Sometimes a function can fail, especially when working with external services or saved data.
+
+`pcall()` runs a function and reports whether it succeeded.
+
+```lua
+local success, result = pcall(function()
+    return 10 / 0
+end)
+
+if success then
+    print(result)
+else
+    warn("Something went wrong:", result)
+end
+```
+
+This illustrates the structure of `pcall()`. It does not replace proper input validation or debugging.
+
+For example, when using DataStores, `pcall()` can catch errors caused by failed requests so that your script can handle them appropriately.
+
+## 13. DataStores and Saving Player Data
+
+DataStores let you save information between play sessions.
+
+They should normally be accessed from server-side Scripts, and API access must be configured appropriately for testing.
+
+A simplified example:
+
+```lua
+local DataStoreService = game:GetService("DataStoreService")
+local coinsStore = DataStoreService:GetDataStore("PlayerCoins")
+
+local success, result = pcall(function()
+    return coinsStore:GetAsync("Player_123")
+end)
+
+if success then
+    print("Saved coins:", result)
+else
+    warn("Could not load coins:", result)
+end
+```
+
+This example reads a value for a sample key. It does not implement a complete saving system.
+
+A real system should use a consistent player key, handle new players, save changes safely, account for players leaving, and manage failures and request limits. Avoid overwriting saved data with a default value when a load fails.
+
+## 14. Performance and Clean Code
+
+As your game grows, efficient and readable code becomes increasingly important.
+
+Follow these practices:
+
+- Use `local` variables where appropriate.
+- Cache references to objects you use repeatedly.
+- Avoid unnecessary infinite loops.
+- Prefer events over constantly checking whether something changed.
+- Disconnect event connections when they are no longer needed.
