@@ -1,1 +1,223 @@
+# Roblox Luau Scripting Guide for Beginners
 
+## 1. Introduction to Luau
+
+Luau is the programming language used in Roblox Studio. With Luau, you can make your game interactive by creating systems such as coins, inventories, shops, leaderboards, doors, and much more.
+
+You don't need any previous programming experience to get started. The best way to learn is to understand the basics, experiment with small scripts, and gradually build more complex systems.
+
+## 2. Your First Script
+
+To create your first script:
+
+1. Open Roblox Studio.
+2. Open the Explorer window.
+3. Insert a Script into a Part in Workspace.
+4. Delete the default code and write:
+
+```lua
+print("Hello, World!")
+```
+
+5. Press Play and open the Output window.
+
+You should see `Hello, World!` printed in the Output window.
+
+**What does this mean?**
+
+- `print()` displays information in the Output window.
+- `"Hello, World!"` is a string, which means text.
+- The code inside the parentheses is the information that gets printed.
+
+## 3. Variables
+
+Variables store information that you can use later.
+
+```lua
+local coins = 10
+local playerName = "Alex"
+local isAlive = true
+
+print(coins)
+print(playerName)
+print(isAlive)
+```
+
+There are three common data types:
+
+- **Number:** `10`, `5.5`
+- **String:** `"Hello"`
+- **Boolean:** `true` or `false`
+
+The keyword `local` creates a variable that can be used within its scope.
+
+You can change a variable's value:
+
+```lua
+local coins = 10
+
+coins = coins + 5
+
+print(coins)
+```
+
+The output will be `15`.
+
+## 4. Basic Operators
+
+Operators let you perform calculations and comparisons.
+
+| Operator | Meaning | Example |
+|---|---|---|
+| `+` | Addition | `5 + 3` |
+| `-` | Subtraction | `5 - 3` |
+| `*` | Multiplication | `5 * 3` |
+| `/` | Division | `10 / 2` |
+| `==` | Equal to | `coins == 10` |
+| `~=` | Not equal to | `coins ~= 10` |
+| `>` | Greater than | `coins > 10` |
+| `<` | Less than | `coins < 10` |
+
+Remember: `=` assigns a value, while `==` checks whether two values are equal.
+
+## 5. If Statements
+
+An `if` statement allows your script to make decisions.
+
+```lua
+local coins = 100
+
+if coins >= 50 then
+    print("You can buy the item!")
+else
+    print("You need more coins.")
+end
+```
+
+The script checks whether the player has at least 50 coins.
+
+- `if` starts the condition.
+- `then` begins the code that runs if the condition is true.
+- `else` provides an alternative.
+- `end` closes the statement.
+
+You can also use `elseif` to check additional conditions.
+
+## 6. Functions
+
+Functions are reusable blocks of code.
+
+```lua
+local function sayHello()
+    print("Hello!")
+end
+
+sayHello()
+```
+
+The function runs when you call it using `sayHello()`.
+
+Functions can also receive parameters:
+
+```lua
+local function greetPlayer(name)
+    print("Hello, " .. name .. "!")
+end
+
+greetPlayer("Alex")
+```
+
+The `..` operator joins strings together.
+
+## 7. Events
+
+Events allow your script to react when something happens in the game.
+
+For example, you can detect when a player touches a Part.
+
+```lua
+local part = script.Parent
+
+part.Touched:Connect(function(hit)
+    print("Something touched the part!")
+end)
+```
+
+**Important concepts:**
+
+- `script.Parent` refers to the object containing the Script.
+- `Touched` is an event that fires when something touches the Part.
+- `:Connect()` connects a function to the event.
+- `hit` represents the object that touched the Part.
+
+This event can fire multiple times, so you may need a debounce when you only want an action to happen once.
+
+## 8. Loops
+
+Loops repeat code.
+
+### While loop
+
+```lua
+while true do
+    print("Hello!")
+    task.wait(1)
+end
+```
+
+This prints `Hello!` approximately once per second.
+
+- `while true do` starts a loop that continues indefinitely.
+- `task.wait(1)` pauses the loop for approximately one second.
+- `end` closes the loop.
+
+Be careful with infinite loops. Always use an appropriate yield, such as `task.wait()`, when necessary.
+
+### For loop
+
+```lua
+for i = 1, 5 do
+    print(i)
+end
+```
+
+This prints the numbers from 1 to 5.
+
+## 9. Tables
+
+Tables store multiple values in one variable.
+
+```lua
+local inventory = {"Sword", "Apple", "Potion"}
+
+print(inventory[1])
+print(inventory[2])
+```
+
+The output is:
+
+```text
+Sword
+Apple
+```
+
+In Luau, arrays stored in tables normally start at index `1`, not `0`.
+
+You can add another item using:
+
+```lua
+table.insert(inventory, "Shield")
+```
+
+Tables are useful for inventories, item lists, player data, and many other systems.
+
+## 10. Working with Roblox Objects
+
+Roblox Studio contains objects such as Parts, Models, Players, and Lights. Scripts can access and modify their properties.
+
+For example, place a Script inside a Part and write:
+
+```lua
+local part = script.Parent
+
+part.BrickColor = Brick
